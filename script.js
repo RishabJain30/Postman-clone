@@ -23,6 +23,16 @@ document
 queryParamsContainer.append(createKeyValuePair())
 requestHeadersContainer.append(createKeyValuePair());
 
+axios.interceptors.request.use(request => {
+    request.customData = request.customData || {};
+    request.customData.startTime = new Date().getTime();
+    return request;
+})
+
+axios.interceptors.response.use(updateEndTime, e => {
+    Promise.reject(updateEndTime(e.response));
+})
+
 form.addEventListener('submit', async (e) => {
    e.preventDefault();
 
@@ -31,14 +41,22 @@ form.addEventListener('submit', async (e) => {
         method: document.querySelector('[data-method]').value,
         params: keyValuePairsToObjects(queryParamsContainer),
         headers: keyValuePairsToObjects(requestHeadersContainer)
-    }).then((response) => {
-        document.querySelector('[data-response-section]').classList.remove('d-none');
-        // updateResponseDetails(response)
-        // updateResponseEditor(response.data)
-        updateResponseHeaders(response.headers)
-        console.log(response.data);
     })
+        .catch(e => e.response)
+        .then((response) => {
+            document.querySelector('[data-response-section]').classList.remove('d-none');
+            updateResponseDetails(response)
+            // updateResponseEditor(response.data)
+            updateResponseHeaders(response.headers)
+            console.log(response.data);
+        })
 })
+
+function updateResponseDetails(response) {
+    document.querySelector('[data-status]').textContent = response.status;
+    document.querySelector('[data-time]').textContent = response.headers['request-duration'] || 'N/A';
+    document.querySelector('[data-size]').textContent = `${new Blob([response.data]).size} bytes`;
+}
 
 function updateResponseHeaders(headers) {
     responseHeadersContainer.innerHTML = "";
