@@ -1,6 +1,8 @@
 import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import axios from 'axios';
+import prettybytes from 'pretty-bytes';
+import setupEditors from './setupEditor';
 
 const form = document.querySelector('[data-form]');
 const queryParamsContainer = document.querySelector('[data-query-params]');
@@ -29,10 +31,17 @@ axios.interceptors.request.use(request => {
     return request;
 })
 
+function updateEndTime(response) {
+    response.customData = response.customData || {};
+    response.customData.time = new Date().getTime() - response.config.customData.startTime;
+    return response;
+}
+
 axios.interceptors.response.use(updateEndTime, e => {
-    Promise.reject(updateEndTime(e.response));
+    return Promise.reject(updateEndTime(e.response));
 })
 
+const { requestEditor, updateResponseEditor } = setupEditors();
 form.addEventListener('submit', async (e) => {
    e.preventDefault();
 
@@ -42,11 +51,11 @@ form.addEventListener('submit', async (e) => {
         params: keyValuePairsToObjects(queryParamsContainer),
         headers: keyValuePairsToObjects(requestHeadersContainer)
     })
-        .catch(e => e.response)
+        .catch(e => e)
         .then((response) => {
             document.querySelector('[data-response-section]').classList.remove('d-none');
             updateResponseDetails(response)
-            // updateResponseEditor(response.data)
+            updateResponseEditor(response.data)
             updateResponseHeaders(response.headers)
             console.log(response.data);
         })
@@ -54,8 +63,10 @@ form.addEventListener('submit', async (e) => {
 
 function updateResponseDetails(response) {
     document.querySelector('[data-status]').textContent = response.status;
-    document.querySelector('[data-time]').textContent = response.headers['request-duration'] || 'N/A';
-    document.querySelector('[data-size]').textContent = `${new Blob([response.data]).size} bytes`;
+    document.querySelector('[data-time]').textContent = response.customData.time;
+    document.querySelector('[data-size]').textContent = prettybytes(
+        JSON.stringify(response.data).length + JSON.stringify(response.headers).length
+    );
 }
 
 function updateResponseHeaders(headers) {
